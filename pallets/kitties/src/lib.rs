@@ -325,23 +325,11 @@ pub mod pallet {
 
 			ensure!(Self::is_kitty_owner(&kitty_id, &sender)?, <Error<T>>::NotKittyOwner);
 
-			let mut kitty = Self::kitties(&kitty_id).ok_or(<Error<T>>::KittyNotExist)?;
-			let bounded_name: BoundedVec<_, _> =
-				name.try_into().map_err(|()| Error::<T>::NameTooLong)?;
-			ensure!(
-				bounded_name.len() >= T::MinNameLength::get() as usize,
-				Error::<T>::NameTooShort
-			);
-
-			kitty.name = Some(bounded_name);
-
-			<Kitties<T>>::insert(kitty_id, kitty);
+			Self::add_kitty_name(kitty_id, name)?;
 
 			Ok(())
 		}
 	}
-
-	//** Our helper functions.**//
 
 	impl<T: Config> Pallet<T> {
 		fn gen_gender() -> Gender {
@@ -407,7 +395,7 @@ pub mod pallet {
 		pub fn is_kitty_owner(kitty_id: &T::Hash, acct: &T::AccountId) -> Result<bool, Error<T>> {
 			match Self::kitties(kitty_id) {
 				Some(kitty) => Ok(kitty.owner == *acct),
-				None => Err(<Error<T>>::KittyNotExist),
+				_ => Err(<Error<T>>::KittyNotExist),
 			}
 		}
 
@@ -443,10 +431,25 @@ pub mod pallet {
 
 		pub fn fetch_kitty_id(dna: [u8; 16]) -> Option<T::Hash> {
 			if let Some(kitty_id) = Self::dna_to_kitty(dna) {
-				Some(kitty_id)
-			} else {
-				None
+				return Some(kitty_id);
 			}
+			None
+		}
+
+		pub fn add_kitty_name(kitty_id: T::Hash, name: Vec<u8>) -> Result<(), Error<T>> {
+			let mut kitty = Self::kitties(&kitty_id).ok_or(<Error<T>>::KittyNotExist)?;
+			let bounded_name: BoundedVec<_, _> =
+				name.try_into().map_err(|()| Error::<T>::NameTooLong)?;
+
+			ensure!(
+				bounded_name.len() >= T::MinNameLength::get() as usize,
+				Error::<T>::NameTooShort
+			);
+
+			kitty.name = Some(bounded_name);
+			<Kitties<T>>::insert(kitty_id, kitty);
+
+			Ok(())
 		}
 	}
 }
